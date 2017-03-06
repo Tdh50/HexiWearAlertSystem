@@ -49,9 +49,9 @@ char rxData[TRANSFER_SIZE];
 char txData[TRANSFER_SIZE];
 
 /* Pointer for the image to be displayed  */  
-const uint8_t *homeBMP = HEXIWEAR_HOME_bmp;
-const uint8_t *sendBMP  = HEXIWEAR_SEND_bmp;
-const uint8_t *bannerBMP = hexicomm_bmp; 
+const uint8_t *safeBMP = fallbutton_bmp;
+const uint8_t *heartrateBMP  = heartrate_bmp;
+const uint8_t *safeelderBMP = safeelder_bmp; 
    
 /****************************Call Back Functions*******************************/
 /*Send Button */
@@ -77,7 +77,7 @@ void ButtonLeft(void)
     greenLed = !sentMessageDisplayedFlag;
     
     /*Redraw Send Button*/
-    oled.DrawImage(sendBMP,53,81);
+    oled.DrawImage(heartrateBMP,53,81);
     screenHandler(screenNum,prefix);
 }
 
@@ -93,7 +93,7 @@ void ButtonUp(void)
         greenLed = !sentMessageDisplayedFlag;
         
         /*Redraw Send Button*/
-        oled.DrawImage(sendBMP,53,81);
+        oled.DrawImage(heartrateBMP,53,81);
 
         prefix = !prefix; 
         screenHandler(screenNum,prefix);
@@ -110,7 +110,7 @@ void ButtonDown(void)
     greenLed = !sentMessageDisplayedFlag;
     
     /*Redraw Send Button*/
-    oled.DrawImage(sendBMP,53,81);
+    oled.DrawImage(heartrateBMP,53,81);
     
     if (screenNum < NUM_OF_SCREENS -1) {
         screenNum++;
@@ -170,9 +170,9 @@ int main()
     displayHome();   
      
     /*Draw Home Button and Send Button*/  
-    oled.DrawImage(homeBMP,0,81);
-    oled.DrawImage(sendBMP,53,81);
-    oled.DrawImage(hexicomm_bmp,0,0);
+    oled.DrawImage(fallbuttonBMP,0,81);
+    oled.DrawImage(heartrateBMP,53,81);
+    oled.DrawImage(safeelder_bmp,0,0);
 
     while (true) 
     {
