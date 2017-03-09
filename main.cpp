@@ -49,9 +49,9 @@ char rxData[TRANSFER_SIZE];
 char txData[TRANSFER_SIZE];
 
 /* Pointer for the image to be displayed  */  
-const uint8_t *safeBMP = fallbutton_bmp;
-const uint8_t *heartrateBMP  = heartrate_bmp;
-const uint8_t *safeelderBMP = safeelder_bmp; 
+const uint8_t *SafeBMP = HexiSafe96_bmp;
+
+ 
    
 /****************************Call Back Functions*******************************/
 /*Send Button */
@@ -77,8 +77,8 @@ void ButtonLeft(void)
     greenLed = !sentMessageDisplayedFlag;
     
     /*Redraw Send Button*/
-    oled.DrawImage(heartrateBMP,53,81);
-    screenHandler(screenNum,prefix);
+   // oled.DrawImage(heartrateBMP,53,81);
+    //screenHandler(screenNum,prefix);
 }
 
 /*Toggles Between I am @ and Meet @ */
@@ -93,10 +93,10 @@ void ButtonUp(void)
         greenLed = !sentMessageDisplayedFlag;
         
         /*Redraw Send Button*/
-        oled.DrawImage(heartrateBMP,53,81);
+      //  oled.DrawImage(heartrateBMP,53,81);
 
-        prefix = !prefix; 
-        screenHandler(screenNum,prefix);
+       // prefix = !prefix; 
+       // screenHandler(screenNum,prefix);
     }
 }
 
@@ -110,7 +110,7 @@ void ButtonDown(void)
     greenLed = !sentMessageDisplayedFlag;
     
     /*Redraw Send Button*/
-    oled.DrawImage(heartrateBMP,53,81);
+    //oled.DrawImage(heartrateBMP,53,81);
     
     if (screenNum < NUM_OF_SCREENS -1) {
         screenNum++;
@@ -170,9 +170,9 @@ int main()
     displayHome();   
      
     /*Draw Home Button and Send Button*/  
-    oled.DrawImage(fallbuttonBMP,0,81);
-    oled.DrawImage(heartrateBMP,53,81);
-    oled.DrawImage(safeelder_bmp,0,0);
+    oled.DrawImage(HexiSafe96_bmp,0,0);
+   
+    
 
     while (true) 
     {
@@ -295,7 +295,7 @@ void screenHandler(uint8_t stageNum,uint8_t header)
     oled.TextBox(" ",0,20,95,18);
 
     //Text for Line 2
-    switch(header)                  
+     switch(header)                  
     {
         case 0:
         {
@@ -318,7 +318,7 @@ void screenHandler(uint8_t stageNum,uint8_t header)
     }
 
     //Text for Line 3
-    switch (stageNum)
+        switch (stageNum)
     {
         case 0:
         {
