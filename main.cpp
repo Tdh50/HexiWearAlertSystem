@@ -1,5 +1,6 @@
 #include "mbed.h"
 #include "Hexi_KW40Z.h"
+#include "FXOS8700.h"
 #include "Hexi_OLED_SSD1351.h"
 #include "OLED_types.h"
 #include "OpenSans_Font.h"
@@ -17,7 +18,7 @@
 void StartHaptic(void);
 void StopHaptic(void const *n);
 void txTask(void);
-
+void accelero(void);
 void displayHome();
 void screenHandler(uint8_t screen);
 
@@ -28,22 +29,28 @@ DigitalOut haptic(PTB9);
 
 /* Define timer for haptic feedback */
 RtosTimer hapticTimer(StopHaptic, osTimerOnce);
-
+/*  */
+FXOS8700 accel(PTC11, PTC10);
 /* Instantiate the Hexi KW40Z Driver (UART TX, UART RX) */
 KW40Z kw40z_device(PTE24, PTE25);
-
+Serial pc(USBTX, USBRX); // Serial interface
 /* Instantiate the SSD1351 OLED Driver */
 SSD1351 oled(PTB22,PTB21,PTC13,PTB20,PTE6, PTD15); /* (MOSI,SCLK,POWER,CS,RST,DC) */
 oled_text_properties_t textProperties = {0};
-
 /* Instantiate the nRF24L01P Driver */
 nRF24L01P my_nrf24l01p(PTC6,PTC7,PTC5,PTC4,PTB2,NC);    // mosi, miso, sck, csn, ce, irq
 
 /* Text Buffer */
-char text[20];
+char text1[20]; // Text Buffer for dynamic value displayed
+char text2[20]; // Text Buffer for dynamic value displayed
+char text3[20]; // Text Buffer for dynamic value displayed
 
+float accel_data[3]; // Storage for the data from the sensor
+float accel_rms=0.0; // RMS value from the sensor
+float ax, ay, az; // Integer value from the sensor to be displayed
 uint8_t screenNum=0;
 bool prefix=0;
+bool accelerometer = false;
 bool sentMessageDisplayedFlag=0;
 char rxData[TRANSFER_SIZE];
 char txData[TRANSFER_SIZE];
@@ -83,7 +90,7 @@ void ButtonRight(void)
             }
             case 4:
             case 5: {
-                displayHome();
+                accelerometer = false;
                 screenNum = 0;
                 break;
             }
@@ -91,6 +98,7 @@ void ButtonRight(void)
                 break;
             }
         }
+        screenHandler(screenNum);
     }
 }
 
@@ -103,7 +111,9 @@ void ButtonLeft(void)
         //Refer to screenHandler for screen numbers
         if(screenNum == 3 || screenNum == 4 || screenNum == 5) {
             screenNum = screenNum - 2;
-        } else {
+            accelerometer = false;
+        } 
+        else {
             screenNum--;
         }
         screenHandler(screenNum);
@@ -147,22 +157,9 @@ int main()
     blueLed=1;
 
 
-    /* NRF24l0p Setup */
-    my_nrf24l01p.init();
-    my_nrf24l01p.powerUp();
-    my_nrf24l01p.setAirDataRate(NRF24L01P_DATARATE_250_KBPS);
-    my_nrf24l01p.setRfOutputPower(NRF24L01P_TX_PWR_ZERO_DB);
-    my_nrf24l01p.setRxAddress(0xE7E7E7E7E8);
-    my_nrf24l01p.setTxAddress(0xE7E7E7E7E8);
-    my_nrf24l01p.setTransferSize( TRANSFER_SIZE );
-    my_nrf24l01p.setReceiveMode();
-    my_nrf24l01p.enable();
 
     /* Get OLED Class Default Text Properties */
     oled.GetTextProperties(&textProperties);
-
-    /* Fills the screen with solid black */
-    oled.FillScreen(COLOR_BLACK);
 
     /* Register callbacks to application functions */
     kw40z_device.attach_buttonLeft(&ButtonLeft);
@@ -179,84 +176,11 @@ int main()
     displayHome();
 
     while (true) {
-
-        // If we've received anything in the nRF24L01+...
-        if ( my_nrf24l01p.readable() ) {
-
-            // ...read the data into the receive buffer
-            my_nrf24l01p.read( NRF24L01P_PIPE_P0, rxData, sizeof(rxData));
-
-            //Set a flag that a message has been received
-            sentMessageDisplayedFlag=1;
-
-            //Turn on Green LED to indicate received message
-            greenLed = !sentMessageDisplayedFlag;
-            //Turn area black to get rid of Send Button
-            oled.DrawBox (53,81,43,15,COLOR_BLACK);
-
-
-            char name[7];
-
-            name[0] = rxData[2];
-            name[1] = rxData[3];
-            name[2] = ' ';
-            name[3] = 's';
-            name[4] = 'e';
-            name[5] = 'n';
-            name[6] = 't';
-
-            oled.TextBox((uint8_t *)name,0,20,95,18);
-
-            switch (rxData[0]) {
-                case 'M': {
-                    oled.TextBox("Meet",0,35,95,18);
-                    break;
-                }
-                case 'I': {
-                    oled.TextBox(" ",0,35,95,18);
-                    break;
-                }
-
-                default: {
-                    break;
-                }
-
-            }
-
-            switch (rxData[1]) {
-                case '0': {
-                    oled.TextBox("Where Yall?",0,50,95,18);
-                    break;
-                }
-                case '1': {
-                    oled.TextBox("@ Stage 1",0,50,95,18);
-                    break;
-                }
-                case '2': {
-                    oled.TextBox("@ Stage 2",0,50,95,18);
-                    break;
-                }
-                case '3': {
-                    oled.TextBox("@ Stage 3",0,50,95,18);
-                    break;
-                }
-                case '4': {
-                    oled.TextBox("@ Stage 4",0,50,95,18);
-                    break;
-                }
-                case '5': {
-                    oled.TextBox("@ Stage 5",0,50,95,18);
-                    break;
-                }
-
-                default: {
-                    break;
-                }
-            }
-            StartHaptic();
+        if(accelerometer ==true)
+        {
+            accelero();    
         }
-
-
+        redLed = 1 ;
         Thread::wait(50);
     }
 }
@@ -311,7 +235,7 @@ void screenHandler(uint8_t screen)
         }
         case 5: {
             //Switching to FallPageBMP
-            oled.DrawImage(FallPageBMP,0,0);
+            accelerometer = true;
             break;
         }
         default: {
@@ -323,5 +247,71 @@ void screenHandler(uint8_t screen)
     //Append Initials to txData[2:3].
     //strcat(txData,NAME);
 
+}
+
+void accelero(void){
+    // Configure Accelerometer FXOS8700, Magnetometer FXOS8700
+    accel.accel_config();
+    oled.DrawImage(FallPageBMP,0,0);
+    // Fill 96px by 96px Screen with 96px by 96px Image starting at x=0,y=0
+    while (screenNum == 5) 
+    {
+    
+      accel.acquire_accel_data_g(accel_data);
+      accel_rms = sqrt(((accel_data[0]*accel_data[0])+(accel_data[1]*accel_data[1])+(accel_data[2]*accel_data[2]))/3);
+      printf("Accelerometer \tX-Axis %4.2f \tY-Axis %4.2f \tZ-Axis %4.2f \tRMS %4.2f\n\r",accel_data[0],accel_data[1],accel_data[2],accel_rms);
+      wait(0.01);
+      ax = accel_data[0];
+      ay = accel_data[1];
+      az = accel_data[2];  
+            /* Get OLED Class Default Text Properties */
+      oled_text_properties_t textProperties = {0};
+      oled.GetTextProperties(&textProperties); 
+      
+      /* Set text properties to white and right aligned for the dynamic text */
+      textProperties.fontColor = COLOR_BLUE;
+      textProperties.alignParam = OLED_TEXT_ALIGN_LEFT;
+      oled.SetTextProperties(&textProperties);  
+      
+      /* Display Legends */
+      strcpy((char *) text1,"X-Axis (g):");
+      oled.Label((uint8_t *)text1,5,26);      
+      
+      /* Format the value */
+      sprintf(text1,"%4.2f",ax);
+      /* Display time reading in 35px by 15px textbox at(x=55, y=40) */
+      oled.TextBox((uint8_t *)text1,70,26,20,15); //Increase textbox for more digits
+
+      /* Set text properties to white and right aligned for the dynamic text */ 
+      textProperties.fontColor = COLOR_GREEN;
+      textProperties.alignParam = OLED_TEXT_ALIGN_LEFT;
+      oled.SetTextProperties(&textProperties);  
+
+      /* Display Legends */
+      strcpy((char *) text2,"Y-Axis (g):");
+      oled.Label((uint8_t *)text2,5,43); 
+      
+      /* Format the value */
+      sprintf(text2,"%4.2f",ay);
+      /* Display time reading in 35px by 15px textbox at(x=55, y=40) */
+      oled.TextBox((uint8_t *)text2,70,43,20,15); //Increase textbox for more digits
+      
+      /* Set text properties to white and right aligned for the dynamic text */ 
+      textProperties.fontColor = COLOR_RED;
+      textProperties.alignParam = OLED_TEXT_ALIGN_LEFT;
+      oled.SetTextProperties(&textProperties);  
+      
+      /* Display Legends */
+      strcpy((char *) text3,"Z-Axis (g):");
+      oled.Label((uint8_t *)text3,5,60);       
+      
+      /* Format the value */
+      sprintf(text3,"%4.2f",az);
+      /* Display time reading in 35px by 15px textbox at(x=55, y=40) */
+      oled.TextBox((uint8_t *)text3,70,60,20,15); //Increase textbox for more digits
+
+      redLed = !redLed ;
+      Thread::wait(1000);
+    }      
 }
 
