@@ -63,6 +63,7 @@ const uint8_t *FallBMP = FallDet_bmp;
 const uint8_t *FallPageBMP = FallDetPage_bmp;
 const uint8_t *HomeBMP = Home_bmp;
 const uint8_t *HeartPageBMP = HeartRatePage_bmp;
+const uint8_t  *AlertBMP = Alert_bmp;
 
 
 //***************************Call Back Functions****************************** 
@@ -115,10 +116,13 @@ void ButtonLeft(void)
             accelerometer = false;
         } else {
             screenNum--;
-        }
-        screenHandler(screenNum);
+        } screenHandler(screenNum);
     }
-
+    else{
+        
+        screenHandler(6);
+        
+        }
 }
 
 //Advances to Heartrate only when user
@@ -235,6 +239,10 @@ void screenHandler(uint8_t screen)
             drawAccel();
             break;
         }
+        case 6: {
+            //AlertNotification
+            oled.DrawImage(AlertBMP,10,25);
+            }
         default: {
             break;
         }
@@ -246,8 +254,8 @@ void screenHandler(uint8_t screen)
 
 }
 
-void accelero(void)
-{
+void accelero(void) {
+    
     // Configure Accelerometer FXOS8700, Magnetometer FXOS8700
     accel.accel_config();
     //oled.DrawImage(FallPageBMP,0,0);
