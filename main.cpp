@@ -241,7 +241,7 @@ void screenHandler(uint8_t screen)
         }
         case 6: {
             //AlertNotification
-            oled.DrawImage(AlertBMP,10,25);
+            oled.DrawImage(AlertBMP,0,0);
             }
         default: {
             break;
