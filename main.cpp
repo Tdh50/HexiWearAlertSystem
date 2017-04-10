@@ -64,7 +64,7 @@ char txData[TRANSFER_SIZE];
 int16_t x=0,y=0,z=0;
 
 // Pointer for the image to be displayed
-const uint8_t *SafeBMP = HexiSafe96_bmp;
+//const uint8_t *SafeBMP = HexiSafe96_bmp;
 const uint8_t *HeartBMP = HeartRate_bmp;
 const uint8_t *FallBMP = FallDet_bmp;
 const uint8_t *FallPageBMP = FallDetPage_bmp;
@@ -78,31 +78,24 @@ void ButtonRight(void)
 {
     // All screens other than 1 have either and enter button
     // or a home buttom.
-    if(screenNum != 1) {
+    if(screenNum != 0) {
         StartHaptic();
         switch(screenNum) {
-            case 0: {
-                screenNum++;
+            case 1: {
+                screenNum=screenNum + 2;
                 screenHandler(screenNum);
                 break;
             }
             case 2: {
                 screenNum = screenNum + 2;
-                screenHandler(screenNum);
                 break;
             }
-            case 3: {
-                screenNum = screenNum + 2;
-                screenHandler(screenNum);
-                break;
-            }
-            case 4:
-            case 5: {
-                accelerometer = false;
+            case 3:
+            case 4: {
                 screenNum = 0;
                 break;
             }
-            case 6: {
+            case 5: {
                 screenNum = 0;
                 break;
             }
@@ -121,14 +114,14 @@ void ButtonLeft(void)
     if(screenNum > 0) {
         //Allow user to go back to correct screen based on srceen number
         //Refer to screenHandler for screen numbers
-        if(screenNum == 3 || screenNum == 4 || screenNum == 5) {
+        if(screenNum == 3 || screenNum == 4 || screenNum == 2) {
             screenNum = screenNum - 2;
-            accelerometer = false;
         } else {
             screenNum--;
         }
-    } else {
-        screenNum = 6;
+    } 
+    if(screenNum == 0) {
+        screenNum = 5;
     }
     screenHandler(screenNum);
 }
@@ -137,7 +130,7 @@ void ButtonLeft(void)
 //is on Hexisafe screen
 void ButtonUp(void)
 {
-    if (screenNum == 1) {
+    if (screenNum == 0) {
         StartHaptic();
         screenNum++;
         screenHandler(screenNum);
@@ -150,7 +143,7 @@ void ButtonUp(void)
 //is on Hexisafe screen
 void ButtonDown(void)
 {
-    if (screenNum == 1) {
+    if (screenNum == 0) {
         StartHaptic();
         screenNum= screenNum + 2;
         screenHandler(screenNum);
@@ -210,7 +203,7 @@ int main()
         y = accel_data[1] *10000;
         z = accel_data[2] *10000;
         printf("x = %4.4f y = %4.4f z = %4.4f\n\rx = %i y = %i z = %i\n\r",accel_data[0],accel_data[1],accel_data[2],x,y,z);
-        if(screenNum == 5) {
+        if(screenNum == 4) {
             drawAccel();
         }
         Thread::wait(300);
@@ -248,31 +241,26 @@ void screenHandler(uint8_t screen)
             break;
         }
         case 1: {
-            //Switching to SafeBMP
-            oled.DrawImage(SafeBMP,0,0);
-            break;
-        }
-        case 2: {
             //Switching to HeartBMP
             oled.DrawImage(HeartBMP,0,0);
             break;
         }
-        case 3: {
+        case 2: {
             //Switching to FallBMP
             oled.DrawImage(FallBMP,0,0);
             break;
         }
-        case 4: {
+        case 3: {
             //Switching to HeartPageBMP
             oled.DrawImage(HeartPageBMP,0,0);
             break;
         }
-        case 5: {
+        case 4: {
             //Switching to FallPageBMP
             oled.DrawBox (23,18,50 ,50 , COLOR_BLACK);
             break;
         }
-        case 6: {
+        case 5: {
             //Switching to alarm
             oled.DrawImage(AlertBMP,0,0);
             break;
