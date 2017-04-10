@@ -8,11 +8,11 @@
 #include "string.h"
 #include "images.h"
 
+
 #define NAME    "RB"
 
 #define LED_ON      0
 #define LED_OFF     1
-#define NUM_OF_SCREENS 4
 #define TRANSFER_SIZE   4
 
 void StartHaptic(void);
@@ -21,7 +21,7 @@ void txTask(void);
 void accelero(void);
 void drawAccel(void);
 void displayHome();
-void screenHandler(uint8_t screen);
+
 
 
 DigitalOut redLed(LED1,1);
@@ -31,7 +31,7 @@ DigitalOut haptic(PTB9);
 
 // Define timer for haptic feedback
 RtosTimer hapticTimer(StopHaptic, osTimerOnce);
-//
+// Instantiates the FX0S8700 accelerometer driver
 FXOS8700 accel(PTC11, PTC10);
 // Instantiate the Hexi KW40Z Driver (UART TX, UART RX)
 KW40Z kw40z_device(PTE24, PTE25);
@@ -44,27 +44,24 @@ oled_text_properties_t textProperties = {0};
 /*Create a Thread to handle sending BLE Sensor Data */
 Thread txThread;
 
-
 // Text Buffer
 char text1[20]; // Text Buffer for dynamic value displayed
 char text2[20]; // Text Buffer for dynamic value displayed
 char text3[20]; // Text Buffer for dynamic value displayed
-char text [20];
+char pass [20]; // Passcode
 
 float accel_data[3]; // Storage for the data from the sensor
 float accel_rms=0.0; // RMS value from the sensor
-float ax, ay, az; // Integer value from the sensor to be displayed
-uint8_t timer = 30;
 uint8_t screenNum=0;
-bool prefix=0;
-bool accelerometer = false;
+bool alert = false;  //Sets alarm to zero
+uint8_t previous;    //Keeps track of previous screen
+bool trigger = false;
 bool sentMessageDisplayedFlag=0;
 char rxData[TRANSFER_SIZE];
-char txData[TRANSFER_SIZE];
-int16_t x=0,y=0,z=0;
+char txData[TRANSFER_SIZE];//Data send via BLE
+int16_t x=0,y=0,z=0; 
 
 // Pointer for the image to be displayed
-//const uint8_t *SafeBMP = HexiSafe96_bmp;
 const uint8_t *HeartBMP = HeartRate_bmp;
 const uint8_t *FallBMP = FallDet_bmp;
 const uint8_t *FallPageBMP = FallDetPage_bmp;
@@ -82,12 +79,13 @@ void ButtonRight(void)
         StartHaptic();
         switch(screenNum) {
             case 1: {
-                screenNum=screenNum + 2;
-                screenHandler(screenNum);
+                screenNum = screenNum + 2;
+
                 break;
             }
             case 2: {
                 screenNum = screenNum + 2;
+                trigger = true;
                 break;
             }
             case 3:
@@ -96,34 +94,33 @@ void ButtonRight(void)
                 break;
             }
             case 5: {
-                screenNum = 0;
+                screenNum = previous;
+                alert = false;
                 break;
             }
             default: {
                 break;
             }
         }
-        screenHandler(screenNum);
     }
 }
 
 //Back Button
 void ButtonLeft(void)
 {
-    StartHaptic();
-    if(screenNum > 0) {
+ 
+    if(screenNum > 0 && screenNum != 5) {
+        StartHaptic();
         //Allow user to go back to correct screen based on srceen number
-        //Refer to screenHandler for screen numbers
-        if(screenNum == 3 || screenNum == 4 || screenNum == 2) {
+        if(screenNum == 2 || screenNum == 3 || screenNum == 4) {
             screenNum = screenNum - 2;
         } else {
             screenNum--;
         }
-    } 
-    if(screenNum == 0) {
+    } else {
+        StartHaptic();
         screenNum = 5;
     }
-    screenHandler(screenNum);
 }
 
 //Advances to Heartrate only when user
@@ -133,7 +130,6 @@ void ButtonUp(void)
     if (screenNum == 0) {
         StartHaptic();
         screenNum++;
-        screenHandler(screenNum);
     }
 
 
@@ -146,7 +142,7 @@ void ButtonDown(void)
     if (screenNum == 0) {
         StartHaptic();
         screenNum= screenNum + 2;
-        screenHandler(screenNum);
+
     }
 
 }
@@ -154,12 +150,12 @@ void ButtonDown(void)
 void PassKey(void)
 {
     StartHaptic();
-    strcpy((char *) text,"PAIR CODE");
-    oled.TextBox((uint8_t *)text,0,25,95,18);
+    strcpy((char *) pass,"PAIR CODE");
+    oled.TextBox((uint8_t *)pass,0,25,95,18);
 
     /* Display Bond Pass Key in a 95px by 18px textbox at x=0,y=40 */
-    sprintf(text,"%d", kw40z_device.GetPassKey());
-    oled.TextBox((uint8_t *)text,0,40,95,18);
+    sprintf(pass,"%d", kw40z_device.GetPassKey());
+    oled.TextBox((uint8_t *)pass,0,40,95,18);
 }
 
 
@@ -169,32 +165,30 @@ void PassKey(void)
 
 int main()
 {
-    // Wait Sequence in the beginning for board to be reset then placed in mini docking station
     accel.accel_config();
 
-    // Get OLED Class Default Text Properties
+    // Get & set OLED Class Default Text Properties
     oled.GetTextProperties(&textProperties);
-
+    oled_text_properties_t textProperties = {0};
+    oled.SetTextProperties(&textProperties);
+    
     // Register callbacks to application functions
     kw40z_device.attach_buttonLeft(&ButtonLeft);
     kw40z_device.attach_buttonRight(&ButtonRight);
     kw40z_device.attach_buttonUp(&ButtonUp);
     kw40z_device.attach_buttonDown(&ButtonDown);
-    oled_text_properties_t textProperties = {0};
-    oled.SetTextProperties(&textProperties);
+    
+    uint8_t num = 0;
+    displayHome();
 
     //Passcode
     kw40z_device.attach_passkey(&PassKey);
 
-    // Change font color to white
+    //Change font color to white
     textProperties.fontColor   = COLOR_WHITE;
     textProperties.alignParam = OLED_TEXT_ALIGN_CENTER;
 
-    //txThread.start(txTask); /*Start transmitting Sensor Tag Data */
-
-    //Displays the Home Screen
-    displayHome();
-    //bool trigger = 0;
+    txThread.start(txTask); //Start transmitting Sensor Tag Data 
 
     while (true) {
         accel.acquire_accel_data_g(accel_data);
@@ -202,11 +196,64 @@ int main()
         x = accel_data[0] *10000;
         y = accel_data[1] *10000;
         z = accel_data[2] *10000;
-        printf("x = %4.4f y = %4.4f z = %4.4f\n\rx = %i y = %i z = %i\n\r",accel_data[0],accel_data[1],accel_data[2],x,y,z);
-        if(screenNum == 4) {
-            drawAccel();
+        //Displays the screen number, and the Alert Value
+        printf("Screen = %i Num = %i alert = %d\n\r",screenNum,num,alert);
+        //printf("%4.4f\n\r",accel_rms);
+        if(accel_rms*10 > 12.4)//Triggers alarmbmp if fall is detected
+        {
+            oled.DrawImage(AlertBMP,0,0);
+            previous = screenNum;//Allows to return to previous screen.
+            num = screenNum - 1;//^
+            screenNum = 5;
+            alert = true;
         }
-        Thread::wait(300);
+        if((screenNum != num && alert == false) || screenNum == 4) {
+            switch(screenNum) {
+                case 0: {
+                    displayHome();
+                    num = screenNum;
+                    break;
+                }
+                case 1: {
+                    //Switching to HeartBMP
+                    oled.DrawImage(HeartBMP,0,0);
+                    num = screenNum;
+                    break;
+                }
+                case 2: {
+                    //Switching to FallBMP
+                    oled.DrawImage(FallBMP,0,0);
+                    num = screenNum;
+                    break;
+                }
+                case 3: {
+                    //Switching to HeartPageBMP
+                    oled.DrawImage(HeartPageBMP,0,0);
+                    num = screenNum;
+                    break;
+                }
+                case 4: {
+                    //Switching to FallPageBMP
+                    if(trigger == true) {
+                        oled.DrawBox (23,18,50 ,50 , COLOR_BLACK);
+                        trigger = false;
+                    }
+                    drawAccel();
+                    num = screenNum;
+                    break;
+                }
+                case 5: {
+                    //Switching to alarm
+                    oled.DrawImage(AlertBMP,0,0);
+                    num = screenNum;
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
+        }
+        Thread::wait(100);
     }
 
 
@@ -229,51 +276,6 @@ void StopHaptic(void const *n)
 void displayHome(void)
 {
     oled.DrawImage(HomeBMP,0,0);
-}
-
-
-void screenHandler(uint8_t screen)
-{
-    //Switching screens
-    switch(screen) {
-        case 0: {
-            displayHome();
-            break;
-        }
-        case 1: {
-            //Switching to HeartBMP
-            oled.DrawImage(HeartBMP,0,0);
-            break;
-        }
-        case 2: {
-            //Switching to FallBMP
-            oled.DrawImage(FallBMP,0,0);
-            break;
-        }
-        case 3: {
-            //Switching to HeartPageBMP
-            oled.DrawImage(HeartPageBMP,0,0);
-            break;
-        }
-        case 4: {
-            //Switching to FallPageBMP
-            oled.DrawBox (23,18,50 ,50 , COLOR_BLACK);
-            break;
-        }
-        case 5: {
-            //Switching to alarm
-            oled.DrawImage(AlertBMP,0,0);
-            break;
-        }
-        default: {
-            break;
-        }
-    }
-
-
-    //Append Initials to txData[2:3].
-    //strcat(txData,NAME);
-
 }
 
 void drawAccel(void)
@@ -312,15 +314,11 @@ void drawAccel(void)
 // txTask() transmits the sensor data
 void txTask(void)
 {
-
     while (true) {
-
         //UpdateSensorData();
         kw40z_device.SendSetApplicationMode(GUI_CURRENT_APP_SENSOR_TAG);
-
         //Send Accel Data.
         kw40z_device.SendAccel(x,y,z);
+        Thread::wait(1000);
     }
 }
-
-
