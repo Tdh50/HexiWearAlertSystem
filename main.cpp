@@ -51,7 +51,7 @@ char text3[20]; // Text Buffer for dynamic value displayed
 char pass [20]; // Passcode
 
 float accel_data[3]; // Storage for the data from the sensor
-float accel_rms=0.0; // RMS value from the sensor
+double accel_rms=0.0; // RMS value from the sensor
 uint8_t screenNum=0;
 bool alert = false;  //Sets alarm to zero
 uint8_t previous;    //Keeps track of previous screen
@@ -80,7 +80,6 @@ void ButtonRight(void)
         switch(screenNum) {
             case 1: {
                 screenNum = screenNum + 2;
-
                 break;
             }
             case 2: {
@@ -196,16 +195,24 @@ int main()
         x = accel_data[0] *10000;
         y = accel_data[1] *10000;
         z = accel_data[2] *10000;
-        //Displays the screen number, and the Alert Value
-        printf("Screen = %i Num = %i alert = %d\n\r",screenNum,num,alert);
+
+        // Check screen, alert and num values
+        //printf("Screen = %i Num = %i alert = %d\n\r",screenNum,num,alert);
+        // Check Fall Data
         //printf("%4.4f\n\r",accel_rms);
-        if(accel_rms*10 > 12.4)//Triggers alarmbmp if fall is detected
+        if(accel_rms*10 > 12.4)//Triggers AlertBMP if fall is detected
         {
             oled.DrawImage(AlertBMP,0,0);
             previous = screenNum;//Allows to return to previous screen.
             num = screenNum - 1;//^
             screenNum = 5;
             alert = true;
+            
+        }
+        //Trigger Blinking Red LED when alarm is set off
+        if(alert == true)
+        {
+            redLed = !redLed;    
         }
         if((screenNum != num && alert == false) || screenNum == 4) {
             switch(screenNum) {
@@ -235,11 +242,12 @@ int main()
                 case 4: {
                     //Switching to FallPageBMP
                     if(trigger == true) {
-                        oled.DrawBox (23,18,50 ,50 , COLOR_BLACK);
+                        oled.DrawImage(FallPageBMP,0,0);
+                        //Only allows draw image to occur once
                         trigger = false;
                     }
-                    drawAccel();
                     num = screenNum;
+                    drawAccel();
                     break;
                 }
                 case 5: {
@@ -273,11 +281,13 @@ void StopHaptic(void const *n)
     hapticTimer.stop();
 }
 
+
 void displayHome(void)
 {
     oled.DrawImage(HomeBMP,0,0);
 }
 
+// drawAccel() Draws the accelerometer values to screen
 void drawAccel(void)
 {
 
