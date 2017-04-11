@@ -1,4 +1,5 @@
 #include "stdint.h"
+
 extern const uint8_t  HeartRate_bmp[18438];
 extern const uint8_t  FallDet_bmp[18438];
 extern const uint8_t  FallDetPage_bmp[18438];
