@@ -50,6 +50,7 @@ char text2[20]; // Text Buffer for dynamic value displayed
 char text3[20]; // Text Buffer for dynamic value displayed
 char pass [20]; // Passcode
 
+bool power = 1; // Contol for oled Power
 float accel_data[3]; // Storage for the data from the sensor
 double accel_rms=0.0; // RMS value from the sensor
 uint8_t screenNum=0;
@@ -59,7 +60,7 @@ bool trigger = false;
 bool sentMessageDisplayedFlag=0;
 char rxData[TRANSFER_SIZE];
 char txData[TRANSFER_SIZE];//Data send via BLE
-int16_t x=0,y=0,z=0; 
+int16_t x=0,y=0,z=0;
 
 // Pointer for the image to be displayed
 const uint8_t *HeartBMP = HeartRate_bmp;
@@ -75,7 +76,7 @@ void ButtonRight(void)
 {
     // All screens other than 1 have either and enter button
     // or a home buttom.
-    if(screenNum != 0) {
+    if(screenNum != 0 && power) {
         StartHaptic();
         switch(screenNum) {
             case 1: {
@@ -101,24 +102,31 @@ void ButtonRight(void)
                 break;
             }
         }
+    } else if(screenNum == 0 && power) {
+        power = 0;
+        oled.PowerOFF();
+    } else {
+        oled.PowerON();
+        power = 1;
     }
 }
 
 //Back Button
 void ButtonLeft(void)
 {
- 
-    if(screenNum > 0 && screenNum != 5) {
-        StartHaptic();
-        //Allow user to go back to correct screen based on srceen number
-        if(screenNum == 2 || screenNum == 3 || screenNum == 4) {
-            screenNum = screenNum - 2;
+    if(power) {
+        if(screenNum > 0 && screenNum != 5) {
+            StartHaptic();
+            //Allow user to go back to correct screen based on srceen number
+            if(screenNum == 2 || screenNum == 3 || screenNum == 4) {
+                screenNum = screenNum - 2;
+            } else {
+                screenNum--;
+            }
         } else {
-            screenNum--;
+            StartHaptic();
+            screenNum = 5;
         }
-    } else {
-        StartHaptic();
-        screenNum = 5;
     }
 }
 
@@ -126,7 +134,7 @@ void ButtonLeft(void)
 //is on Hexisafe screen
 void ButtonUp(void)
 {
-    if (screenNum == 0) {
+    if (screenNum == 0 && power) {
         StartHaptic();
         screenNum++;
     }
@@ -138,7 +146,7 @@ void ButtonUp(void)
 //is on Hexisafe screen
 void ButtonDown(void)
 {
-    if (screenNum == 0) {
+    if (screenNum == 0 && power) {
         StartHaptic();
         screenNum= screenNum + 2;
 
@@ -170,13 +178,13 @@ int main()
     oled.GetTextProperties(&textProperties);
     oled_text_properties_t textProperties = {0};
     oled.SetTextProperties(&textProperties);
-    
+
     // Register callbacks to application functions
     kw40z_device.attach_buttonLeft(&ButtonLeft);
     kw40z_device.attach_buttonRight(&ButtonRight);
     kw40z_device.attach_buttonUp(&ButtonUp);
     kw40z_device.attach_buttonDown(&ButtonDown);
-    
+
     uint8_t num = 0;
     displayHome();
 
@@ -187,7 +195,7 @@ int main()
     textProperties.fontColor   = COLOR_WHITE;
     textProperties.alignParam = OLED_TEXT_ALIGN_CENTER;
 
-    txThread.start(txTask); //Start transmitting Sensor Tag Data 
+    txThread.start(txTask); //Start transmitting Sensor Tag Data
 
     while (true) {
         accel.acquire_accel_data_g(accel_data);
@@ -200,21 +208,21 @@ int main()
         //printf("Screen = %i Num = %i alert = %d\n\r",screenNum,num,alert);
         // Check Fall Data
         //printf("%4.4f\n\r",accel_rms);
-        if(accel_rms*10 > 12.4)//Triggers AlertBMP if fall is detected
-        {
+        if(accel_rms*10 > 12.4) { //Triggers AlertBMP if fall is detected
             oled.DrawImage(AlertBMP,0,0);
             previous = screenNum;//Allows to return to previous screen.
             num = screenNum - 1;//^
             screenNum = 5;
             alert = true;
-            
+            trigger = true;
+
         }
         //Trigger Blinking Red LED when alarm is set off
-        if(alert == true)
-        {
-            redLed = !redLed;    
+        if(alert == true) {
+            redLed = !redLed;
         }
         if((screenNum != num && alert == false) || screenNum == 4) {
+            redLed = 1;
             switch(screenNum) {
                 case 0: {
                     displayHome();
