@@ -123,10 +123,10 @@ void ButtonLeft(void)
             } else {
                 screenNum--;
             }
-        } else {
-            StartHaptic();
+        } else if(alert == false) {
             screenNum = 5;
         }
+        StartHaptic();
     }
 }
 
@@ -173,6 +173,9 @@ void PassKey(void)
 int main()
 {
     accel.accel_config();
+    
+    oled.FillScreen(COLOR_BLACK);
+    
 
     // Get & set OLED Class Default Text Properties
     oled.GetTextProperties(&textProperties);
@@ -193,9 +196,10 @@ int main()
 
     //Change font color to white
     textProperties.fontColor   = COLOR_WHITE;
-    textProperties.alignParam = OLED_TEXT_ALIGN_CENTER;
+    textProperties.alignParam = OLED_TEXT_ALIGN_RIGHT;
 
     txThread.start(txTask); //Start transmitting Sensor Tag Data
+
 
     while (true) {
         accel.acquire_accel_data_g(accel_data);
@@ -204,11 +208,13 @@ int main()
         y = accel_data[1] *10000;
         z = accel_data[2] *10000;
 
+
+
         // Check screen, alert and num values
         //printf("Screen = %i Num = %i alert = %d\n\r",screenNum,num,alert);
         // Check Fall Data
         //printf("%4.4f\n\r",accel_rms);
-        if(accel_rms*10 > 12.4) { //Triggers AlertBMP if fall is detected
+        if(accel_rms*10 > 14.0 && alert == false) { //Triggers AlertBMP if fall is detected
             oled.DrawImage(AlertBMP,0,0);
             previous = screenNum;//Allows to return to previous screen.
             num = screenNum - 1;//^
@@ -220,6 +226,8 @@ int main()
         //Trigger Blinking Red LED when alarm is set off
         if(alert == true) {
             redLed = !redLed;
+            hapticTimer.start(30);
+            haptic = 1;
         }
         if((screenNum != num && alert == false) || screenNum == 4) {
             redLed = 1;
